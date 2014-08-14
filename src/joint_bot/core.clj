@@ -116,7 +116,7 @@
   (let [command (clojure.string/replace body #"@jointbot " "")]
     (cond (starts-with command "latest artifact") (latest-artifact (last (clojure.string/split command #" ")))
           (starts-with command "spank") (str "Come on over here " (clojure.string/split command #" ") " and I'll give you a real spanking!")
-          :else (str "I don't know how to do that: " command))))
+          :else (str "I don't know how to " command))))
 
 
 (defn handle-noise [{:keys [body]}]
