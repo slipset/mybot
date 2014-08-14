@@ -3,8 +3,8 @@
 
 (def api-url "http://git.joint.no:8111/app/rest/")
 
-(defn builds-url [build]
-  (str api-url "builds?locator=status:success,buildType:" build))
+(defn builds-url [build branch]
+  (str api-url "builds?locator=status:success,buildType:" build ",branch:" branch))
 
 (defn build-url [build-id]
   (str api-url "builds/id:" build-id))

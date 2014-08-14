@@ -1,7 +1,7 @@
 (ns joint-bot.core
   (:require [xmpp-clj :as xmpp]
             [xmpp-clj.bot :as bot]
-            [joint-bot.jira :as jira]
+;            [joint-bot.jira :as jira]
             [joint-bot.teamcity :as tc])
   (:import  [java.util.concurrent ExecutionException]
             [java.io StringWriter]
@@ -86,17 +86,51 @@
     (str "http://jira.joint.no/browse/" issue ": " (get-in i [:fields :summary]) ", status: " (get-in i [:fields :status :name]))))
 
 (def repl (atom []))
-(defn handle-command [{:keys [body]}]
-  (let [msg (str "I don't know how to do that: " body)]
-    (swap! repl conj msg)
-    msg))
 
+
+(defn parse-date [s]
+  (.format
+    (java.text.SimpleDateFormat. "dd/MM HH:mm")
+    (.parse
+      (java.text.SimpleDateFormat. "yyyyMMdd'T'HHmmssZ")
+      s)))
+      
+(defn latest-artifact [branch]
+  (-> (tc/get-url (tc/builds-url "bt10" branch))
+			:build
+			first
+			:id
+			(tc/build-url)
+			(tc/get-url)
+                        :finishDate
+                         parse-date))
+
+(defn starts-with [s p]
+  (= 0 (.indexOf s p)))
+
+(def nasty-words #{"BITCH" "FUCK" "SHIT" "CUNT"})
+
+(defn profanity? [body]
+  (seq (filter identity (map #(re-matches (re-pattern (str ".* ?" % " ?.*")) (clojure.string/upper-case body)) nasty-words))))
+(defn handle-command [{:keys [body]}]
+  (let [command (clojure.string/replace body #"@jointbot " "")]
+    (cond (starts-with command "latest artifact") (latest-artifact (last (clojure.string/split command #" ")))
+          (starts-with command "spank") (str "Come on over here " (clojure.string/split command #" ") " and I'll give you a real spanking!")
+          :else (str "I don't know how to do that: " command))))
+
+
+(defn handle-noise [{:keys [body]}]
+  (let [issue (re-matches #".*((DARWIN|FRA)-\d+).*" body)]
+    (cond issue (present-issue (second issue))
+          (profanity? body) "Please, watch your language")))
+  
 (defn handle-chatter [{:keys [to from body] :as message}]
   (swap! msgs conj message)
   (if (to-me message)
     (handle-command message)
-    (if-let [issue (re-matches #".*((DARWIN|FRA)-\d+).*" body)]
-      (present-issue (second issue)))))
+    (handle-noise message)))
+      
+    
 
 (defn message-handler [message]
   (when-not (from-me message)
