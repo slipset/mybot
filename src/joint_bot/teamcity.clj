@@ -18,21 +18,11 @@
                                :basic-auth ["erik.assum" "Joint123"]
                                })] (:body response)))
 
-(defn post-url [url body]
-  (client/post url
-               {
-                :form-params
-                :as :xml
-                :accept :json
-                :content-type :xml
-                :basic-auth ["erik.assum" "Joint123"]
-                })
+(defn build-params [build-dep host]
+  (str "name=host&value=" host "&name=dep.bt10.env.BUILD_NUMBER&value=" build-dep))
 
-(defn build-params [host]
-  (str "name=host&value=" host))
-
-(defn build! [id host]
-  (let [url (str start-build-url "bt16&" (build-params host) "&modificationId=109463")]
+(defn deploy! [id host]
+  (let [url (str start-build-url "bt16&" (build-params id host) )]
     (get-url url)))
 
 
