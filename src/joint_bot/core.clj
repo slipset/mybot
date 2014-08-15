@@ -65,10 +65,50 @@
     (handle-command message)
     (handle-noise message)))
 
+(defn teamcity-build-id [{:keys [body]}]
+  (second (re-matches #".*;buildId=(\d+)\".*" body)))
+
+
+(defn format-teamcity [message build]
+  (let [host  (get-in build [:properties :property 0 :value])
+        branch (get-in build [:artifact-dependencies :build 0 :branchName])]
+    (str branch " was deployed to " host)))
+
+(defn build-type [message build]
+  (let [body (:body message)]
+    (cond (re-matches #".*projectId=ContinousIntegration.*" body) :artifacts
+          (re-matches #".*projectId=Deployment.*" body) :deploy
+          :else :unknown)))
+
+(defmulti format-teamcity  build-type)
+
+(defmethod format-teamcity :deploy [message build]
+  (let [host  (get-in build [:properties :property 0 :value])
+        branch (get-in build [:artifact-dependencies :build 0 :branchName])]
+    (str branch " was deployed to " host)))
+
+(defmethod format-teamcity :artifacts [message build]
+  (let [body (:body message)
+        branch (get-in build [:artifact-dependencies :build 0 :branchName])]
+    (if (re-matches #".*success.*" body)
+      (str branch " is ready for deploy" )
+      (str "artifact build failed: " (:webUrl build)))))
+
+(defn handle-teamcity [message]
+  (swap! msgs conj message)
+  (let [build-id (teamcity-build-id message)
+        build (tc/get-url (tc/build-url build-id))]
+        (format-teamcity message build)))
+
 (defn message-handler [message]
   (when-not (from-me message)
     (handle-chatter message)))
-    
+
+(defn auto-message-handler [message]
+  (when-not (from-me message)
+    (cond (not= -1 (.indexOf (:from message) "TeamCity"))
+          (handle-teamcity message)
+          :else nil)))
 
 (comment
   (.disconnect chat)
@@ -83,7 +123,7 @@
 
 (def tango-auto (xmpp/join chat  "107552_tango_env." "Joint Bot"))
 
-(xmpp/add-message-listener message-handler tango-auto tango)
+(xmpp/add-message-listener auto-message-handler tango-auto tango)
   
 (def fram (xmpp/join chat  "107552_fram_-_development" "Joint Bot"))
 (xmpp/add-message-listener message-handler fram fram)

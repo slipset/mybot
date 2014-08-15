@@ -41,7 +41,6 @@
        (catch Exception e (println e))))))
 
 (defn wrap-responder [handler out]
-  (println out)
   (fn [muc message]
     (if-let [resp (handler message)]
       (.sendMessage out resp))))
