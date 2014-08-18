@@ -21,6 +21,10 @@
 
 (def repl (atom []))
 
+(defn handle-noise [{:keys [body]}]
+  (let [issue (re-matches #".*((DARWIN|FRA)-\d+).*" body)]
+    (cond issue (present-issue (second issue))
+          (profanity? body) "Please, watch your language")))
 
 (defn parse-date [s]
   (.format
@@ -28,16 +32,45 @@
     (.parse
       (java.text.SimpleDateFormat. "yyyyMMdd'T'HHmmssZ")
       s)))
-      
-(defn latest-artifact [branch]
-  (-> (tc/get-url (tc/builds-url "bt10" branch))
-			:build
-			first
-			:id
-			(tc/build-url)
-			(tc/get-url)
-                        :finishDate
-                         parse-date))
+
+(defn latest-artifact-build [branch]
+  (get-in (tc/get-url (tc/builds-url "bt10" branch)) [:build 0]))
+
+(defn latest-artifact-date [branch]
+  (-> (latest-artifact-build branch)
+      :id
+       (tc/build-url)
+       (tc/get-url)
+       :finishDate
+        parse-date))
+
+(defn latest-build-id [branch]
+  (-> (latest-artifact-build branch)
+      :number))
+
+(def host-mapping {
+                   "deploy" "ph-deploy.joint.no"
+                   "mast1" "ph-deploy-mast1.joint.no"
+                   "mast2" "ph-deploy-mast2.joint.no"
+                   "maste" "ph-deploy-maste.joint.no"
+                   "test" "ph-test.joint.no"})
+
+  
+
+(defn parse-deploy [command]
+  (let [terms (clojure.string/split "deploy feature/DARWIN-8312 to deploy" #" ")]
+    {:branch (second terms)
+     :host (get host-mapping (nth terms 3))}))
+
+(defn branch->issue-info [branch]
+  (-> branch
+      (clojure.string/split #"\/")
+      (second)
+      (present-issue)))
+
+(defn deploy-latest [{:keys [branch host who]}]
+  (tc/deploy! who (latest-build-id branch) host)
+  (str who "is deploying " branch " to " host "\n" (branch->issue-info branch)))
 
 (defn starts-with [s p]
   (= 0 (.indexOf s p)))
@@ -47,9 +80,10 @@
 (defn profanity? [body]
   (seq (filter identity (map #(re-matches (re-pattern (str ".* ?" % " ?.*")) (clojure.string/upper-case body)) nasty-words))))
 
-(defn handle-command [{:keys [body]}]
+(defn handle-command [{:keys [body from]}]
   (let [command (clojure.string/replace body #"@jointbot " "")]
     (cond (starts-with command "latest artifact") (latest-artifact (last (clojure.string/split command #" ")))
+          (starts-with command "deploy") (deploy-latest (assoc (parse-deploy command) :who (second (clojure.string/split from "#/"))))
           (starts-with command "spank") (str "Come on over here " (clojure.string/split command #" ") " and I'll give you a real spanking!")
           :else (str "I don't know how to " command))))
 
@@ -82,16 +116,21 @@
 
 (defmulti format-teamcity  build-type)
 
+(defn get-who [build]
+  (or (second (re-matches #".*was triggered by <strong>(.*)</strong>" (:body message)))
+      ))
+  
 (defmethod format-teamcity :deploy [message build]
   (let [host  (get-in build [:properties :property 0 :value])
-        branch (get-in build [:artifact-dependencies :build 0 :branchName])]
-    (str branch " was deployed to " host)))
+        branch (get-in build [:artifact-dependencies :build 0 :branchName])
+        who (get-who build)]
+    (str "Yo " who ", your build " branch " was deployed to " host)))
 
 (defmethod format-teamcity :artifacts [message build]
   (let [body (:body message)
         branch (get-in build [:artifact-dependencies :build 0 :branchName])]
     (if (re-matches #".*success.*" body)
-      (str branch " is ready for deploy" )
+      (str branch " is ready for deploy\n" (branch->issue-info branch))
       (str "artifact build failed: " (:webUrl build)))))
 
 (defn handle-teamcity [message]
