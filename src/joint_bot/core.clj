@@ -42,25 +42,29 @@
         parse-date))
 
 
-(defn send-deploy-request [to subject body]
+(defn send-deploy-request [{:keys [to subject body] :as request}]
   (postal/send-message {:host "smtp.bluecom.no"}
 				     {:from "fb@joint.no"
 				      :to to
+                                      :cc ["fb@joint.no" "ea@joint.no" "pob@joint.no" "am@joint.no"]
 				      :subject subject
-				      :body body}))
+				      :body body})
+  request)
 
-(defn deploy-request [{:keys [who branch where]}]
-  (let [url (tc/get-artifacts-url branch)
-        subject (str "New deploy of " branch " to " where)
-        body (str "\n\nPlease deploy\n\n"
+(defn deploy-request [{:keys [to branch where]}]
+  (let [url (tc/get-artifacts-url branch)]
+    {:subject (str "New deploy of " branch " to " where)
+     :body  (str "\n\nPlease deploy\n\n"
                   url
-                  "\n\n to " where ".\n\n"
+                  "\n\nto " where ".\n\n"
                   "Please follow\n\n"
                   "http://wiki.joint.no/display/DARWIN/Release+Installation+Guide\n\nand\n\n"
                   "http://wiki.joint.no/display/DARWIN/General+Installation+Guide\n\n"
-                  "Kind regards,\n\n @jointbot\n")]
-    (send-deploy-request who subject body)
-    (str "request to deploy " branch " to " where " is sent to " who)))
+                  "Kind regards,\n\n @jointbot\n")
+     :to to}))
+
+(defn reply-to-deploy-request [{:keys [to branch where]}]
+  (str "request to deploy " branch " to " where " is sent to " to))
 
 (defn latest-build-id [branch]
   (-> (latest-artifact-build branch)
@@ -75,7 +79,7 @@
 
 (defn parse-deploy-request [command]
   (let [terms (clojure.string/split command #" ")]
-		  {:who (nth terms 2)
+		  {:to (nth terms 2)
 		   :branch (nth terms 5)
 		   :where (nth terms 7)}))
 
@@ -103,7 +107,11 @@
           (starts-with command "deploy") (deploy-latest (assoc (parse-deploy command) :who (second (clojure.string/split from #"/"))))
           (starts-with command "spank") (str "Come on over here " (clojure.string/split command #" ") " and I'll give you a real spanking!")
           (starts-with command "wakeup!") "I'm already awake, stupid!"
-          (starts-with command "please ask") (deploy-request (parse-deploy-request command))
+          (starts-with command "please ask") (->
+                                              (parse-deploy-request command)
+                                              (deploy-request)
+                                              (send-deploy-request)
+                                              (reply-to-deploy-request))
           :else (str "I don't know how to " command))))
 
 
