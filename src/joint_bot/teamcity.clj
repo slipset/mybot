@@ -11,6 +11,13 @@
 
 (def start-build-url (str api-url  "buildQueue"))
 
+(def host-mapping {
+                   "deploy" "ph-deploy.joint.no"
+                   "mast1" "ph-deploy-mast1.joint.no"
+                   "mast2" "ph-deploy-mast2.joint.no"
+                   "maste" "ph-deploy-maste.joint.no"
+                   "test" "ph-test.joint.no"})
+
 (defn artifacts-url [id]
   (str api-url "builds/" id "/artifacts"))
 
@@ -56,8 +63,12 @@
 </build>"))
 
 (defn deploy! [who id host]
-  (let [url start-build-url]
-    (post-url url (build-params "bt16" id host who))))
+  (let [url start-build-url
+        build-id (if (= "test" host)
+                   "bt17"
+                   "bt16")]
+    (post-url url (build-params build-id id (get host-mapping host) who))))
+
 
 
 (defn get-build [id]

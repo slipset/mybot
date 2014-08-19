@@ -66,19 +66,12 @@
   (-> (latest-artifact-build branch)
       :number))
 
-(def host-mapping {
-                   "deploy" "ph-deploy.joint.no"
-                   "mast1" "ph-deploy-mast1.joint.no"
-                   "mast2" "ph-deploy-mast2.joint.no"
-                   "maste" "ph-deploy-maste.joint.no"
-                   "test" "ph-test.joint.no"})
-
-  
+ 
 
 (defn parse-deploy [command]
   (let [terms (clojure.string/split command #" ")]
     {:branch (second terms)
-     :host (get host-mapping (nth terms 3))}))
+     :host (nth terms 3)}))
 
 (defn parse-deploy-request [command]
   (let [terms (clojure.string/split command #" ")]
