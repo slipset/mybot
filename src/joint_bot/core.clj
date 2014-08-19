@@ -1,10 +1,8 @@
 (ns joint-bot.core
   (:require [joint-bot.xmpp :as xmpp]
             [joint-bot.jira :as jira]
+            [postal.core :as postal]
             [joint-bot.teamcity :as tc]))
-
-
-
 
 (def msgs (atom []))
 
@@ -34,15 +32,35 @@
       s)))
 
 (defn latest-artifact-build [branch]
-  (get-in (tc/get-url (tc/builds-url "bt10" branch)) [:build 0]))
+  (get-in (tc/latest-artifact branch) [:build 0]))
 
 (defn latest-artifact-date [branch]
   (-> (latest-artifact-build branch)
       :id
-       (tc/build-url)
-       (tc/get-url)
+       (tc/get-build)
        :finishDate
         parse-date))
+
+
+(defn send-deploy-request [to subject body]
+  (postal/send-message {:host "smtp.bluecom.no"}
+				     {:from "fb@joint.no"
+				      :to to
+				      :subject subject
+				      :body body}))
+
+(defn deploy-request [{:keys [who branch where]}]
+  (let [url (tc/get-artifacts-url branch)
+        subject (str "New deploy of " branch " to " where)
+        body (str "\n\nPlease deploy\n\n"
+                  url
+                  "\n\n to " where ".\n\n"
+                  "Please follow\n\n"
+                  "http://wiki.joint.no/display/DARWIN/Release+Installation+Guide\n\nand\n\n"
+                  "http://wiki.joint.no/display/DARWIN/General+Installation+Guide\n\n"
+                  "Kind regards,\n\n @jointbot\n")]
+    (send-deploy-request who subject body)
+    (str "request to deploy " branch " to " where " is sent to " who)))
 
 (defn latest-build-id [branch]
   (-> (latest-artifact-build branch)
@@ -58,9 +76,15 @@
   
 
 (defn parse-deploy [command]
-  (let [terms (clojure.string/split "deploy feature/DARWIN-8312 to deploy" #" ")]
+  (let [terms (clojure.string/split command #" ")]
     {:branch (second terms)
      :host (get host-mapping (nth terms 3))}))
+
+(defn parse-deploy-request [command]
+  (let [terms (clojure.string/split command #" ")]
+		  {:who (nth terms 2)
+		   :branch (nth terms 5)
+		   :where (nth terms 7)}))
 
 (defn branch->issue-info [branch]
   (-> branch
@@ -70,7 +94,7 @@
 
 (defn deploy-latest [{:keys [branch host who]}]
   (tc/deploy! who (latest-build-id branch) host)
-  (str who "is deploying " branch " to " host "\n" (branch->issue-info branch)))
+  (str who " is deploying " branch " to " host "\n" (branch->issue-info branch)))
 
 (defn starts-with [s p]
   (= 0 (.indexOf s p)))
@@ -82,9 +106,11 @@
 
 (defn handle-command [{:keys [body from]}]
   (let [command (clojure.string/replace body #"@jointbot " "")]
-    (cond (starts-with command "latest artifact") (latest-artifact (last (clojure.string/split command #" ")))
-          (starts-with command "deploy") (deploy-latest (assoc (parse-deploy command) :who (second (clojure.string/split from "#/"))))
+    (cond (starts-with command "latest artifact") (latest-artifact-date (last (clojure.string/split command #" ")))
+          (starts-with command "deploy") (deploy-latest (assoc (parse-deploy command) :who (second (clojure.string/split from #"/"))))
           (starts-with command "spank") (str "Come on over here " (clojure.string/split command #" ") " and I'll give you a real spanking!")
+          (starts-with command "wakeup!") "I'm already awake, stupid!"
+          (starts-with command "please ask") (deploy-request (parse-deploy-request command))
           :else (str "I don't know how to " command))))
 
 
@@ -102,7 +128,6 @@
 (defn teamcity-build-id [{:keys [body]}]
   (second (re-matches #".*;buildId=(\d+)\".*" body)))
 
-
 (defn format-teamcity [message build]
   (let [host  (get-in build [:properties :property 0 :value])
         branch (get-in build [:artifact-dependencies :build 0 :branchName])]
@@ -116,14 +141,14 @@
 
 (defmulti format-teamcity  build-type)
 
-(defn get-who [build]
-  (or (second (re-matches #".*was triggered by <strong>(.*)</strong>" (:body message)))
-      ))
+(defn get-who [build message]
+  (or (:value (first (filter #(= "owner" (:name %)) (:property (:properties build)))))
+      (second (re-matches #".*was triggered by <strong>(.*)</strong>" (:body message)))))
   
 (defmethod format-teamcity :deploy [message build]
   (let [host  (get-in build [:properties :property 0 :value])
         branch (get-in build [:artifact-dependencies :build 0 :branchName])
-        who (get-who build)]
+        who (get-who build message)]
     (str "Yo " who ", your build " branch " was deployed to " host)))
 
 (defmethod format-teamcity :artifacts [message build]
@@ -136,7 +161,7 @@
 (defn handle-teamcity [message]
   (swap! msgs conj message)
   (let [build-id (teamcity-build-id message)
-        build (tc/get-url (tc/build-url build-id))]
+        build (tc/get-build build-id)]
         (format-teamcity message build)))
 
 (defn message-handler [message]

@@ -3,7 +3,7 @@
 
 (def api-url "http://git.joint.no:8111/app/rest/")
 
-(defn builds-url [build branch]
+(defn- builds-url [build branch]
   (let [b (if (= "master" branch)
             "&lt;default&gt;"
             branch)]
@@ -11,30 +11,30 @@
 
 (def start-build-url (str api-url  "buildQueue"))
 
-(defn build-url [build-id]
+(defn artifacts-url [id]
+  (str api-url "builds/" id "/artifacts"))
+
+(defn- build-url [build-id]
   (str api-url "builds/id:" build-id))
 
-(defn get-url [url]
+(defn- get-url [url]
   (let [response (client/get url
                               {
-                               :debug true
-                               :debug-body true
+;;                               :debug true
+;;                               :debug-body true
                                :as :json
                                :accept :json
                                :content-type :json
                                :basic-auth ["erik.assum" "Joint123"]
                                })] (:body response)))
-(defn build-params [build-dep host]
-  (str "name=host&value=" host "&name=dep.bt10.env.BUILD_NUMBER&value=" build-dep))
-
-(defn post-url [url body]
+(defn- post-url [url body]
   (let [response (client/post url
                               {:body body
                                :content-type :xml
                                :basic-auth ["erik.assum" "Joint123"]
                                })] (:body response)))
 
-(defn build-params [build-type build-dep host who]
+(defn- build-params [build-type build-dep host who]
   (str "<build> 
     <triggeringOptions queueAtTop=\"true\"/>
   <buildType id=\"" build-type"\"/>
@@ -44,7 +44,7 @@
                 <property name=\"cleanDestinationDirectory\" value=\"true\"/>
                 <property name=\"pathRules\" value=\"**\"/>
                 <property name=\"revisionName\" value=\"buildNumber\"/>
-                <property name=\"revisionValue\" value=\"13083\"/>
+                <property name=\"revisionValue\" value=\"" build-dep "\"/>
             </properties>
         <source-buildType id=\"bt10\" />
         </artifact-dependency>
@@ -57,6 +57,20 @@
 
 (defn deploy! [who id host]
   (let [url start-build-url]
-    (post-url url (build-params "bt16" id host))))
+    (post-url url (build-params "bt16" id host who))))
 
+
+(defn get-build [id]
+  (get-url (build-url id)))
   
+(defn latest-artifact [branch]
+  (get-url (builds-url "bt10" branch)))
+
+(defn get-artifact [id]
+  
+
+(defn get-artifacts-url [branch]
+  (let [id (get-in (latest-artifact branch) [:build 0 :id])
+        artifacts (get-url (artifacts-url id))
+        artifact (first (filter #(re-matches #".*installation_package-public-.*.zip" (:name %)) (:files artifacts)))]
+    (str "http://git.joint.no:8111/repository/download/bt10/" id ":id/" (:name artifact))))
