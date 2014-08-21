@@ -70,7 +70,9 @@
   (-> (latest-artifact-build branch)
       :number))
 
- 
+(defn teamcity-rebuild [branch who] 
+  (tc/rebuild! who branch)
+  (str "Ok, rebuilding " branch " just for you :)"))
 
 (defn parse-deploy [command]
   (let [terms (clojure.string/split command #" ")]
@@ -105,6 +107,7 @@
   (let [command (clojure.string/replace body #"@jointbot " "")]
     (cond (starts-with command "latest artifact") (latest-artifact-date (last (clojure.string/split command #" ")))
           (starts-with command "deploy") (deploy-latest (assoc (parse-deploy command) :who (second (clojure.string/split from #"/"))))
+          (starts-with command "rebuild") (teamcity-rebuild (last (clojure.string/split command #" ")) (second (clojure.string/split from #"/")))
           (starts-with command "spank") (str "Come on over here " (clojure.string/split command #" ") " and I'll give you a real spanking!")
           (starts-with command "wakeup!") "I'm already awake, stupid!"
           (starts-with command "please ask") (->

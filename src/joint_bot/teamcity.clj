@@ -37,6 +37,9 @@
 (defn- post-url [url body]
   (let [response (client/post url
                               {:body body
+                               :debug true
+                               :debug-body true
+                              
                                :content-type :xml
                                :basic-auth ["erik.assum" "Joint123"]
                                })] (:body response)))
@@ -62,6 +65,16 @@
     </properties>
 </build>"))
 
+(defn- build-rebuild-params [who branch]
+  (str "<build branchName=\"" branch "\"> 
+    <triggeringOptions queueAtTop=\"true\" rebuildAllDependencies=\"true\" cleanSources=\"true\"/>
+  <buildType id=\"bt10\"/>
+  <properties>
+        <property name=\"owner\" value=\"" who "\"/>
+    </properties>
+</build>"))
+
+
 (defn deploy! [who id host]
   (let [url start-build-url
         build-id (if (= "test" host)
@@ -69,16 +82,15 @@
                    "bt16")]
     (post-url url (build-params build-id id (get host-mapping host) who))))
 
-
+(defn rebuild! [who branch]
+  (let [url start-build-url]
+    (post-url url (build-rebuild-params who branch))))
 
 (defn get-build [id]
   (get-url (build-url id)))
   
 (defn latest-artifact [branch]
   (get-url (builds-url "bt10" branch)))
-
-(defn get-artifact [id]
-  
 
 (defn get-artifacts-url [branch]
   (let [id (get-in (latest-artifact branch) [:build 0 :id])
