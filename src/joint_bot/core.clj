@@ -19,6 +19,14 @@
 
 (def repl (atom []))
 
+(defn starts-with [s p]
+  (= 0 (.indexOf s p)))
+
+(def nasty-words #{"BITCH" "FUCK" "SHIT" "PISS" "COCKSUCKER" "MOTHERFUCKER" "TITS" "CUNT"})
+
+(defn profanity? [body]
+  (seq (filter identity (map #(re-matches (re-pattern (str ".* ?" % " ?.*")) (clojure.string/upper-case body)) nasty-words))))
+
 (defn handle-noise [{:keys [body]}]
   (let [issue (re-matches #".*((DARWIN|FRA)-\d+).*" body)]
     (cond issue (present-issue (second issue))
@@ -96,13 +104,6 @@
   (tc/deploy! who (latest-build-id branch) host)
   (str who " is deploying " branch " to " host "\n" (branch->issue-info branch)))
 
-(defn starts-with [s p]
-  (= 0 (.indexOf s p)))
-
-(def nasty-words #{"BITCH" "FUCK" "SHIT" "PISS" "COCKSUCKER" "MOTHERFUCKER" "TITS" "CUNT"})
-
-(defn profanity? [body]
-  (seq (filter identity (map #(re-matches (re-pattern (str ".* ?" % " ?.*")) (clojure.string/upper-case body)) nasty-words))))
 
 (defn handle-command [{:keys [body from]}]
   (let [command (clojure.string/replace body #"@jointbot " "")]
