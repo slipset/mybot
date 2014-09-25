@@ -217,4 +217,4 @@
   
   (def fram (xmpp/join chat  "107552_fram_-_development" "Joint Bot"))
   (xmpp/add-message-listener message-handler fram fram))
-)
+
