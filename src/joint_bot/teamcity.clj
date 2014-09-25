@@ -4,9 +4,7 @@
 (def api-url "http://git.joint.no:8111/app/rest/")
 
 (defn- builds-url [build branch]
-  (let [b (if (= "master" branch)
-            "&lt;default&gt;"
-            branch)]
+  (let [b branch]
     (str api-url "builds?locator=status:success,buildType:" build ",branch:" b)))
 
 (def start-build-url (str api-url  "buildQueue"))
@@ -43,6 +41,11 @@
                                :content-type :xml
                                :basic-auth ["erik.assum" "Joint123"]
                                })] (:body response)))
+
+(defn- correct-branch [branch]
+  (if (= "master" branch)
+    "&lt;default&gt;"
+    branch))
 
 (defn- build-params [build-type build-dep host who]
   (str "<build> 
@@ -84,13 +87,13 @@
 
 (defn rebuild! [who branch]
   (let [url start-build-url]
-    (post-url url (build-rebuild-params who branch))))
+    (post-url url (build-rebuild-params who (correct-branch branch)))))
 
 (defn get-build [id]
   (get-url (build-url id)))
   
 (defn latest-artifact [branch]
-  (get-url (builds-url "bt10" branch)))
+  (get-url (builds-url "bt10" (correct-branch branch))))
 
 (defn get-artifacts-url [branch]
   (let [id (get-in (latest-artifact branch) [:build 0 :id])

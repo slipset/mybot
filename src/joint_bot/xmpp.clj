@@ -4,7 +4,8 @@
               [org.jivesoftware.smack ConnectionConfiguration XMPPConnection XMPPException PacketListener]
               [org.jivesoftware.smack.packet Message Presence Presence$Type]
               [org.jivesoftware.smackx.muc MultiUserChat DiscussionHistory]
-              [org.jivesoftware.smack.util StringUtils]))
+              [org.jivesoftware.smack.util StringUtils]
+              [org.jivesoftware.smackx.packet VCard]))
 
 
 
@@ -44,6 +45,8 @@
   (fn [muc message]
     (if-let [resp (handler message)]
       (.sendMessage out resp))))
+
+
 
 (defn join
   [conn room room-nickname]

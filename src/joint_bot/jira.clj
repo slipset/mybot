@@ -11,7 +11,7 @@
 (defn get-url [url]
   (let [response (client/get url
                               {
-                               :debug true
+;                               :debug true
                                :as :json
                                :basic-auth ["ea@joint.no" "Joint123"]
                                :content-type :json
@@ -19,5 +19,4 @@
 
 (defn issue [issue]
   (get-url (issue-url issue)))
-
 

@@ -86,10 +86,11 @@
 		   :where (nth terms 7)}))
 
 (defn branch->issue-info [branch]
-  (-> branch
-      (clojure.string/split #"\/")
-      (second)
-      (present-issue)))
+  (when (not= "master" branch)
+	  (-> branch
+              (clojure.string/split #"\/")
+              (second)
+              (present-issue))))
 
 (defn deploy-latest [{:keys [branch host who]}]
   (tc/deploy! who (latest-build-id branch) host)
@@ -98,7 +99,7 @@
 (defn starts-with [s p]
   (= 0 (.indexOf s p)))
 
-(def nasty-words #{"BITCH" "FUCK" "SHIT" "CUNT"})
+(def nasty-words #{"BITCH" "FUCK" "SHIT" "PISS" "COCKSUCKER" "MOTHERFUCKER" "TITS" "CUNT"})
 
 (defn profanity? [body]
   (seq (filter identity (map #(re-matches (re-pattern (str ".* ?" % " ?.*")) (clojure.string/upper-case body)) nasty-words))))
@@ -108,7 +109,7 @@
     (cond (starts-with command "latest artifact") (latest-artifact-date (last (clojure.string/split command #" ")))
           (starts-with command "deploy") (deploy-latest (assoc (parse-deploy command) :who (second (clojure.string/split from #"/"))))
           (starts-with command "rebuild") (teamcity-rebuild (last (clojure.string/split command #" ")) (second (clojure.string/split from #"/")))
-          (starts-with command "spank") (str "Come on over here " (clojure.string/split command #" ") " and I'll give you a real spanking!")
+          (starts-with command "spank") (str "Come on over here " (apply str (clojure.string/split command #" ")) " and I'll give you a real spanking!")
           (starts-with command "wakeup!") "I'm already awake, stupid!"
           (starts-with command "please ask") (->
                                               (parse-deploy-request command)
@@ -119,8 +120,8 @@
 
 
 (defn handle-noise [{:keys [body]}]
-  (let [issue (re-matches #".*((DARWIN|FRA)-\d+).*" body)]
-    (cond issue (present-issue (second issue))
+  (let [issues (re-seq #"(DARWIN|FRA)-\d+" body)]
+    (cond issues (clojure.string/join "\n" (map #(present-issue (first %)) issues))
           (profanity? body) "Please, watch your language")))
   
 (defn handle-chatter [{:keys [to from body] :as message}]
@@ -143,6 +144,18 @@
           (re-matches #".*projectId=Deployment.*" body) :deploy
           :else :unknown)))
 
+
+(defn build-failed [build]
+  (let [branch (apply str (->> build
+                               :snapshot-dependencies
+                                :build
+                                 (map :branchName)
+                                 (filter #(not= "master" %))
+                                 (interpose ", ")))]
+                                 
+                           
+    (str "artifact build for " branch " failed: " (:webUrl build))))
+
 (defmulti format-teamcity  build-type)
 
 (defn get-who [build message]
@@ -160,7 +173,7 @@
         branch (get-in build [:artifact-dependencies :build 0 :branchName])]
     (if (re-matches #".*success.*" body)
       (str branch " is ready for deploy\n" (branch->issue-info branch))
-      (str "artifact build failed: " (:webUrl build)))))
+      (build-failed build))))
 
 (defn handle-teamcity [message]
   (swap! msgs conj message)
@@ -200,5 +213,6 @@ tango
 tango-auto
 
 
-(.sendMessage tango-auto "ugle")
+(.sendMessage tango "oh, I can't be bothered")
+
 )
