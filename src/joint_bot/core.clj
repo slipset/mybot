@@ -104,6 +104,15 @@
   (tc/deploy! who (latest-build-id branch) host)
   (str who " is deploying " branch " to " host "\n" (branch->issue-info branch)))
 
+(defn runtime-info []
+  {:host (.getCanonicalHostName (java.net.InetAddress/getLocalHost))
+   :port  (slurp "target/repl-port")})
+
+
+(defn tell-where []
+  (let [{:keys [host port]} (runtime-info)]
+    (str "oh, I'm running on " host ":" port)))
+
 
 (defn handle-command [{:keys [body from]}]
   (let [command (clojure.string/replace body #"@jointbot " "")]
@@ -117,6 +126,7 @@
                                               (deploy-request)
                                               (send-deploy-request)
                                               (reply-to-deploy-request))
+          (starts-with command "where are you running") (tell-where)
           :else (str "I don't know how to " command))))
 
 
@@ -144,7 +154,6 @@
     (cond (re-matches #".*projectId=ContinousIntegration.*" body) :artifacts
           (re-matches #".*projectId=Deployment.*" body) :deploy
           :else :unknown)))
-
 
 (defn build-failed [build]
   (let [branch (apply str (->> build
@@ -192,28 +201,20 @@
           (handle-teamcity message)
           :else nil)))
 
-(comment
+(defn -main  [& args] 
   (.disconnect chat)
   (.leave tango-auto)
 
+  (def chat (xmpp/connect "107552_1112696" "Joint123" "Joint Bot"))
 
-(def chat (xmpp/connect "107552_1112696" "Joint123" "Joint Bot"))
+  (def tango (xmpp/join chat  "107552_tango" "Joint Bot"))
 
-(def tango (xmpp/join chat  "107552_tango" "Joint Bot"))
+  (xmpp/add-message-listener message-handler tango tango)
 
-(xmpp/add-message-listener message-handler tango tango)
+  (def tango-auto (xmpp/join chat  "107552_tango_env." "Joint Bot"))
 
-(def tango-auto (xmpp/join chat  "107552_tango_env." "Joint Bot"))
-
-(xmpp/add-message-listener auto-message-handler tango-auto tango)
+  (xmpp/add-message-listener auto-message-handler tango-auto tango)
   
-(def fram (xmpp/join chat  "107552_fram_-_development" "Joint Bot"))
-(xmpp/add-message-listener message-handler fram fram)
-
-tango
-tango-auto
-
-
-(.sendMessage tango "oh, I can't be bothered")
-
+  (def fram (xmpp/join chat  "107552_fram_-_development" "Joint Bot"))
+  (xmpp/add-message-listener message-handler fram fram))
 )
