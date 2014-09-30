@@ -51,7 +51,7 @@
 
 
 (defn send-deploy-request [{:keys [to subject body] :as request}]
-  (postal/send-message {:host "smtp.bluecom.no"}
+  (postal/send-message {:host "utmail.no"}
 				     {:from "fb@joint.no"
 				      :to to
                                       :cc ["fb@joint.no" "ea@joint.no" "pob@joint.no" "am@joint.no"]
