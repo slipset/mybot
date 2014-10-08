@@ -24,7 +24,7 @@
   (= 0 (.indexOf s p)))
 
 (defn handle-noise [{:keys [body]}]
-  (let [issue (re-matches #".*((DARWIN|FRA)-\d+).*" body)]
+  (let [issue (re-matches config/getenv [:jira :issue-matcher] body)]
     (cond issue (present-issue (second issue)))))
 
 (defn parse-date [s]
