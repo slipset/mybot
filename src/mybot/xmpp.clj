@@ -1,4 +1,4 @@
-(ns joint-bot.xmpp
+(ns mybot.xmpp
     (:import  [java.util.concurrent ExecutionException]
               [java.io StringWriter]
               [org.jivesoftware.smack ConnectionConfiguration XMPPConnection XMPPException PacketListener]
