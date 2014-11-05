@@ -46,11 +46,9 @@
     (if-let [resp (handler message)]
       (.sendMessage out resp))))
 
-
-
 (defn join
   [conn room room-nickname]
-  (let [muc (MultiUserChat. conn (str room "@conf.hipchat.com"))
+  (let [muc (MultiUserChat. conn room)
         history (DiscussionHistory.)]
     (.setMaxStanzas history 0)
     (.join muc room-nickname nil history, 3000)

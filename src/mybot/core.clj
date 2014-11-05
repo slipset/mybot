@@ -8,15 +8,17 @@
 (def msgs (atom []))
 
 (defn from-me [{:keys [from]}]
-  (not= -1 (.indexOf from "Joint Bot")))
+  (not= -1 (.indexOf from "sausage"))) ;; fixme
 
 (defn to-me [{:keys [body]}]
-  (= 0 (.indexOf body "@jointbot")))
+  (= 0 (.indexOf body (config/getenv [:xmpp :name]))))
 
 
 (defn present-issue [issue]
   (let [i (jira/issue issue)]
-    (str "http://jira.joint.no/browse/" issue ": " (get-in i [:fields :summary]) ", status: " (get-in i [:fields :status :name]))))
+    (str "http://jira.joint.no/browse/" issue ": "
+         (get-in i [:fields :summary]) ", status: "
+         (get-in i [:fields :status :name]))))
 
 (def repl (atom []))
 
@@ -46,9 +48,9 @@
 
 (defn send-deploy-request [{:keys [to subject body] :as request}]
   (postal/send-message (config/getenv [:deploy :host])
-                       {:from (config/getevn [:deploy :from])
+                       {:from (config/getenv [:deploy :from])
                         :to to
-                        :cc (config/getevn [:deploy :cc])
+                        :cc (config/getenv [:deploy :cc])
                         :subject subject
                         :body body})
   request)
@@ -99,7 +101,6 @@
   {:host (.getCanonicalHostName (java.net.InetAddress/getLocalHost))
    :port  (slurp "target/repl-port")})
 
-
 (defn tell-where []
   (let [{:keys [host port]} (runtime-info)]
     (str "oh, I'm running on " host ":" port)))
@@ -128,13 +129,18 @@
    {:match #(starts-with % "where are you running")
     :command (fn [_] (tell-where))}])
 
-   
-   
+(defn remove-name [s]
+  (let [pattern (re-pattern (str (config/getenv [:xmpp :name]) " "))]
+    (clojure.string/replace s pattern "")))
+
 (defn handle-command [{:keys [body from] :as message}]
-  (let [command (clojure.string/replace body #"@jointbot " "")
+  (let [command (remove-name body)
         f (first (filter #((:match %) command) commands))]
         ((:command f) (assoc message :body command))))
-3
+
+(defn profanity? [body]
+  nil)
+
 (defn handle-noise [{:keys [body]}]
   (let [issues (re-seq ( config/getenv [:jira :issue-matcher]) body)]
     (cond issues (clojure.string/join "\n" (map #(present-issue (first %)) issues))
@@ -143,7 +149,7 @@
 (defn handle-chatter [{:keys [to from body] :as message}]
   (swap! msgs conj message)
   (if (to-me message)
-    (handle-command message)
+    (handle-command message) ;; fix-me
     (handle-noise message)))
 
 (defn teamcity-build-id [{:keys [body]}]
@@ -208,6 +214,7 @@
 (defn join-room [chat name room]
   (assoc room :channel (xmpp/join chat  (:name room) name)))
 
+(comment 
 (defn setup  [] 
   (.disconnect chat)
   (.leave tango-auto)
@@ -215,6 +222,14 @@
         chat (xmpp/connect xmpp)
         rooms (map (partial join-room chat name) (:rooms xmpp))]
     (map #(xmpp/add-message-listener message-handler (:channel %)) rooms)))
+
+(def chat (xmpp/connect (config/getenv [:xmpp])))
+(def clojure-room (xmpp/join chat
+                             (config/getenv [:xmpp :room])
+                             (config/getenv [:xmpp :username])))
+(xmpp/add-message-listener message-handler clojure-room clojure-room)
+    (.sendMessage clojure-room "Foo")
+)
     
 
 
