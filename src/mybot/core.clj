@@ -65,7 +65,3 @@
 
 (xmpp/add-message-listener (store-message (dont-reply-to-self #'handle-chatter)) clojure-room)
 )
-    
-
-
-
