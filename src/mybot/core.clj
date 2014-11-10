@@ -3,12 +3,12 @@
               [mybot.util :as util]
               [clj-http.client :as client]))
 
-(def xmpp {:host "localhost"
+(def config {:host "localhost"
           :port 5222
           :username "sausagebot"
           :password "sausage"
           :resource "Mr. Sausage"
-          :room "clojure@conference.clojutre" })
+          :room "clojure@conference.clojutre"})
 
 (defn issue [issue]
   (let [url (str "http://localhost:8080/rest/api/latest/issue/" issue)]
@@ -29,18 +29,12 @@
       (issue)
       (format-issue)))
 
-(defn from-me [{:keys [from]}]
-  (util/contains from (str (:room xmpp) "/" (:username xmpp))))
-
-(defn to-me [{:keys [body]}]
-  (util/contains body (:username xmpp)))
-
 (defn tell-where []
   (let [{:keys [host port]} (util/runtime-info)]
     (str "Oh, I'm running on " host ":" port)))
 
 (defn remove-handle [body]
-  (util/remove-str body (str "@" (:username xmpp) " ")))
+  (util/remove-str body (str "@" (:username config) " ")))
 
 (defn handle-command [{:keys [body from] :as message}]
   (let [command (remove-handle body)]
@@ -50,11 +44,22 @@
   (let [issue (util/matches body #".*(CLOJ-\d+).*")]
     (cond (util/contains body "clojure") "clojure rocks!"
           issue (show-issue issue))))
-  
+
+(defn to-me [{:keys [body]}]
+  (util/contains body (:username config)))
+
 (defn handle-chatter [message]
   (if (to-me message)
     (handle-command message) 
     (handle-noise message)))
+
+(defn from-me [{:keys [from]}]
+  (util/contains from (str (:room config) "/" (:username config))))
+
+(defn dont-reply-to-self [handler]
+  (fn [message]
+    (when-not (from-me message)
+      (handler message))))
 
 (def msgs (atom []))
 
@@ -63,17 +68,18 @@
     (swap! msgs conj message)
     (handler message)))
 
-(defn dont-reply-to-self [handler]
-  (fn [message]
-    (when-not (from-me message)
-      (handler message))))
-
+(def message-listener (-> handle-chatter
+                          (store-message)
+                          (dont-reply-to-self)))
+  
 (comment 
-(reset! msgs [])
-(def chat (xmpp/connect xmpp))
-(def clojure-room (xmpp/join chat (:room xmpp) (:username xmpp)))
+  (reset! msgs [])
+  (.disconnect chat)
+  (def chat (xmpp/connect config))
+  (def clojure-room (xmpp/join chat (:room config) (:username config)))
 
-(.sendMessage clojure-room "Hello! Clojutre!!")
+  (.sendMessage clojure-room "Hello! Clojutre!!")
+  (.sendMessage clojure-room "clojure rocks")
 
-(xmpp/add-message-listener (store-message (dont-reply-to-self #'handle-chatter)) clojure-room)
+  (xmpp/add-message-listener #'message-listener clojure-room)
 )
