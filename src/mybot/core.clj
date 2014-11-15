@@ -1,22 +1,21 @@
 (ns mybot.core
-    (:require [mybot.xmpp :as xmpp]
-              [mybot.util :as util]
+    (:require [xmpp-clj.bot :as xmpp]
               [clj-http.client :as client]))
 
 (def config {:host "localhost"
-          :port 5222
-          :username "sausagebot"
-          :password "sausage"
-          :resource "Mr. Sausage"
-          :room "clojure@conference.clojutre"})
+             :port 5222
+             :username "sausagebot"
+             :domain "localhost"
+             :password "sausage"
+             :resource "Mr. Sausage"
+             :room "clojure@conference.clojutre"})
 
-(defn issue [issue]
+(defn get-issue [issue]
   (let [url (str "http://localhost:8080/rest/api/latest/issue/" issue)]
-    (:body (client/get url
-                       {:as :json
-                        :basic-auth ["sausagebot" "sausage"]
-                        :content-type :json
-                        }))))
+    (:body (client/get url {:as :json
+                            :basic-auth ["sausagebot" "sausage"]
+                            :content-type :json
+                            }))))
 
 (defn format-issue [issue]
   (str "http://localhost:8080/browse/" (:key issue) " "
@@ -26,27 +25,31 @@
 
 (defn show-issue [issue-id]
   (-> issue-id
-      (issue)
+      (get-issue)
       (format-issue)))
 
+(defn runtime-info []
+  {:host (.getCanonicalHostName (java.net.InetAddress/getLocalHost))
+   :port  (slurp "target/repl-port")})
+
 (defn tell-where []
-  (let [{:keys [host port]} (util/runtime-info)]
+  (let [{:keys [host port]} (runtime-info)]
     (str "Oh, I'm running on " host ":" port)))
 
 (defn remove-handle [body]
-  (util/remove-str body (str "@" (:username config) " ")))
+  (clojure.string/replace body (re-pattern (str "@" (:username config) " "))))
 
 (defn handle-command [{:keys [body from] :as message}]
   (let [command (remove-handle body)]
-    (cond (util/starts-with command "where are you running") (tell-where))))
+    (cond (.startsWith command "where are you running") (tell-where))))
 
 (defn handle-noise [{:keys [body]}]
-  (let [issue (util/matches body #".*(CLOJ-\d+).*")]
-    (cond (util/contains body "clojure") "clojure rocks!"
+  (let [issue (second (re-matches #".*(CLOJ-\d+).*" body ))]
+    (cond (.contains body "clojure") "clojure rocks!"
           issue (show-issue issue))))
 
 (defn to-me [{:keys [body]}]
-  (util/contains body (:username config)))
+  (.contains body (:username config)))
 
 (defn handle-chatter [message]
   (if (to-me message)
@@ -54,7 +57,7 @@
     (handle-noise message)))
 
 (defn from-me [{:keys [from]}]
-  (util/contains from (str (:room config) "/" (:username config))))
+  (.contains from (str (:room config) "/" (:username config))))
 
 (defn dont-reply-to-self [handler]
   (fn [message]
@@ -75,11 +78,11 @@
 (comment 
   (reset! msgs [])
   (.disconnect chat)
-  (def chat (xmpp/connect config))
-  (def clojure-room (xmpp/join chat (:room config) (:username config)))
+  (def chat (xmpp/start config #(%)))
+  (def clojure-room (xmpp-clj.bot/join chat (:room config) (:username config)))
 
   (.sendMessage clojure-room "Hello! Clojutre!!")
   (.sendMessage clojure-room "clojure rocks")
 
-  (xmpp/add-message-listener #'message-listener clojure-room)
+  (xmpp/add-muc-listener clojure-room #'message-listener)
 )
