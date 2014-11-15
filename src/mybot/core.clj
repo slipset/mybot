@@ -7,13 +7,14 @@
              :username "sausagebot"
              :domain "localhost"
              :password "sausage"
+             :nick "sausagebot"
              :resource "Mr. Sausage"
              :room "clojure@conference.clojutre"})
 
 (defn get-issue [issue]
   (let [url (str "http://localhost:8080/rest/api/latest/issue/" issue)]
     (:body (client/get url {:as :json
-                            :basic-auth ["sausagebot" "sausage"]
+                            :basic-auth [(:username config) (:password config)]
                             :content-type :json
                             }))))
 
@@ -36,32 +37,33 @@
   (let [{:keys [host port]} (runtime-info)]
     (str "Oh, I'm running on " host ":" port)))
 
-(defn remove-handle [body]
-  (clojure.string/replace body (re-pattern (str "@" (:username config) " "))))
+(defn remove-nick [body]
+  (clojure.string/replace body (re-pattern (str "@" (:nick config) " ")) ""))
 
 (defn handle-command [{:keys [body from] :as message}]
-  (let [command (remove-handle body)]
-    (cond (.startsWith command "where are you running") (tell-where))))
+  (let [command (remove-nick body)]
+    (cond (.startsWith command "where are you running") (tell-where)
+          :else "I'm sorry, I don't know how to do that")))
 
 (defn handle-noise [{:keys [body]}]
-  (let [issue (second (re-matches #".*(CLOJ-\d+).*" body ))]
+  (let [issue (second (re-matches #".*(CLOJ-\d+).*" body))]
     (cond (.contains body "clojure") "clojure rocks!"
           issue (show-issue issue))))
 
-(defn to-me [{:keys [body]}]
+(defn to-me? [{:keys [body]}]
   (.contains body (:username config)))
 
 (defn handle-chatter [message]
-  (if (to-me message)
+  (if (to-me? message)
     (handle-command message) 
     (handle-noise message)))
 
-(defn from-me [{:keys [from]}]
-  (.contains from (str (:room config) "/" (:username config))))
+(defn from-me? [{:keys [from]}]
+  (.contains from (str (:room config) "/" (:nick config))))
 
-(defn dont-reply-to-self [handler]
+(defn remove-message [p handler]
   (fn [message]
-    (when-not (from-me message)
+    (when-not (p message)
       (handler message))))
 
 (def msgs (atom []))
@@ -71,15 +73,17 @@
     (swap! msgs conj message)
     (handler message)))
 
-(def message-listener (-> handle-chatter
+(def message-listener (->> handle-chatter
                           (store-message)
-                          (dont-reply-to-self)))
+                          (remove-message from-me?)))
+
+(keep
   
 (comment 
   (reset! msgs [])
   (.disconnect chat)
   (def chat (xmpp/start config #(%)))
-  (def clojure-room (xmpp-clj.bot/join chat (:room config) (:username config)))
+  (def clojure-room (xmpp-clj.bot/join chat (:room config) (:nick config)))
 
   (.sendMessage clojure-room "Hello! Clojutre!!")
   (.sendMessage clojure-room "clojure rocks")
