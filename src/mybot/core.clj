@@ -18,7 +18,9 @@
 (.sendMessage clojure-room "Hello! Clojutre!!")
 (.sendMessage clojure-room "clojure rocks")
 
-(def message-listener (fn [m] ))
+(defn handle-chatter [m] )
+
+(def message-listener handle-chatter)
 
 (xmpp/add-muc-listener clojure-room #'message-listener)
 
@@ -29,7 +31,7 @@
     (swap! msgs conj message)
     (handler message)))
 
-(def message-listener (-> (fn [m] )
+(def message-listener (-> handle-chatter )
                           (store-message)))
 
 (defn from-me? [{:keys [from]}]
@@ -39,13 +41,6 @@
   (fn [message]
     (when-not (p message)
       (handler message))))
-
-
-(def message-listener (->> (fn [m] )
-                          (store-message)
-                          (remove-message from-me?)))
-
-(defn handle-chatter [m] )
 
 
 (def message-listener (->> handle-chatter
@@ -58,17 +53,6 @@
 
 (defn handle-chatter [m]
   (handle-noise m))
-
-(defn to-me? [{:keys [body]}]
-  (.startsWith  body (str "@" (:nick config))))
-
-(defn handle-command [{:keys [body from] :as message}]
-      "I'm sorry, I don't know how to do that")
-
-(defn handle-chatter [message]
-  (if (to-me? message)
-    (handle-command message) 
-    (handle-noise message)))
 
 (defn get-issue [issue]
   (let [url (str "http://localhost:8080/rest/api/latest/issue/" issue)]
@@ -93,6 +77,17 @@
     (cond (.contains body "clojure") "clojure rocks!"
           issue (show-issue issue))))
 
+(defn handle-command [_]
+  "I'm sorry, I don't know how to do that")
+
+(defn to-me? [{:keys [body]}]
+  (.startsWith  body (str "@" (:nick config))))
+
+(defn handle-chatter [message]
+  (if (to-me? message)
+    (handle-command message) 
+    (handle-noise message)))
+
 (defn runtime-info []
   {:host (.getCanonicalHostName (java.net.InetAddress/getLocalHost))
    :port  (slurp "target/repl-port")})
@@ -108,4 +103,3 @@
   (let [command (remove-nick body)]
     (cond (.startsWith command "where are you running") (tell-where)
           :else "I'm sorry, I don't know how to do that")))
-
