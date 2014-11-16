@@ -76,8 +76,6 @@
 (def message-listener (->> handle-chatter
                           (store-message)
                           (remove-message from-me?)))
-
-(keep
   
 (comment 
   (reset! msgs [])
