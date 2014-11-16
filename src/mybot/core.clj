@@ -18,7 +18,7 @@
 (.sendMessage clojure-room "Hello! Clojutre!!")
 (.sendMessage clojure-room "clojure rocks")
 
-(defn handle-chatter [m] )
+(defn handle-chatter [m])
 
 (def message-listener handle-chatter)
 
@@ -41,7 +41,6 @@
   (fn [message]
     (when-not (p message)
       (handler message))))
-
 
 (def message-listener (->> handle-chatter
                           (store-message)
@@ -92,14 +91,13 @@
   {:host (.getCanonicalHostName (java.net.InetAddress/getLocalHost))
    :port  (slurp "target/repl-port")})
 
-(defn tell-where []
-  (let [{:keys [host port]} (runtime-info)]
-    (str "Oh, I'm running on " host ":" port)))
+(defn tell-where [{:keys [host port]}]
+    (str "Oh, I'm running on " host ":" port))
 
 (defn remove-nick [body]
   (clojure.string/replace body (re-pattern (str "@" (:nick config) " ")) ""))
 
 (defn handle-command [{:keys [body from] :as message}]
   (let [command (remove-nick body)]
-    (cond (.startsWith command "where are you running") (tell-where)
+    (cond (.startsWith command "where are you running") (tell-where (runtime-info))
           :else "I'm sorry, I don't know how to do that")))
