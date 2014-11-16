@@ -11,6 +11,65 @@
              :resource "Mr. Sausage"
              :room "clojure@conference.clojutre"})
 
+(def chat (xmpp/start config #(%))) ;; Just need a function doing nothing which takes one arg
+
+(def clojure-room (xmpp-clj.bot/join chat (:room config) (:nick config)))
+
+(.sendMessage clojure-room "Hello! Clojutre!!")
+(.sendMessage clojure-room "clojure rocks")
+
+(def message-listener (fn [m] ))
+
+(xmpp/add-muc-listener clojure-room #'message-listener)
+
+(def msgs (atom []))
+
+(defn store-message [handler]
+  (fn [message]
+    (swap! msgs conj message)
+    (handler message)))
+
+(def message-listener (-> (fn [m] )
+                          (store-message)))
+
+(defn from-me? [{:keys [from]}]
+  (.contains from (str (:room config) "/" (:nick config))))
+
+(defn remove-message [p handler]
+  (fn [message]
+    (when-not (p message)
+      (handler message))))
+
+
+(def message-listener (->> (fn [m] )
+                          (store-message)
+                          (remove-message from-me?)))
+
+(defn handle-chatter [m] )
+
+
+(def message-listener (->> handle-chatter
+                          (store-message)
+                          (remove-message from-me?)))
+
+(defn handle-noise [{:keys [body]}]
+  (when (.contains body "clojure")
+    "clojure rocks!"))
+
+(defn handle-chatter [m]
+  (handle-noise m))
+
+(defn to-me? [{:keys [body]}]
+  (.startsWith  body (str "@" (:nick config))))
+
+(defn handle-command [{:keys [body from] :as message}]
+      "I'm sorry, I don't know how to do that")
+
+(defn handle-chatter [message]
+  (if (to-me? message)
+    (handle-command message) 
+    (handle-noise message)))
+
 (defn get-issue [issue]
   (let [url (str "http://localhost:8080/rest/api/latest/issue/" issue)]
     (:body (client/get url {:as :json
@@ -29,6 +88,11 @@
       (get-issue)
       (format-issue)))
 
+(defn handle-noise [{:keys [body]}]
+  (let [issue (second (re-matches #".*(CLOJ-\d+).*" body))]
+    (cond (.contains body "clojure") "clojure rocks!"
+          issue (show-issue issue))))
+
 (defn runtime-info []
   {:host (.getCanonicalHostName (java.net.InetAddress/getLocalHost))
    :port  (slurp "target/repl-port")})
@@ -45,48 +109,3 @@
     (cond (.startsWith command "where are you running") (tell-where)
           :else "I'm sorry, I don't know how to do that")))
 
-(defn handle-noise [{:keys [body]}]
-  (let [issue (second (re-matches #".*(CLOJ-\d+).*" body))]
-    (cond (.contains body "clojure") "clojure rocks!"
-          issue (show-issue issue))))
-
-(defn to-me? [{:keys [body]}]
-  (.contains body (:username config)))
-
-(defn handle-chatter [message]
-  (if (to-me? message)
-    (handle-command message) 
-    (handle-noise message)))
-
-(defn from-me? [{:keys [from]}]
-  (.contains from (str (:room config) "/" (:nick config))))
-
-(defn remove-message [p handler]
-  (fn [message]
-    (when-not (p message)
-      (handler message))))
-
-(def msgs (atom []))
-
-(defn store-message [handler]
-  (fn [message]
-    (swap! msgs conj message)
-    (handler message)))
-
-(def message-listener (->> handle-chatter
-                          (store-message)
-                          (remove-message from-me?)))
-
-(keep
-  
-(comment 
-  (reset! msgs [])
-  (.disconnect chat)
-  (def chat (xmpp/start config #(%)))
-  (def clojure-room (xmpp-clj.bot/join chat (:room config) (:nick config)))
-
-  (.sendMessage clojure-room "Hello! Clojutre!!")
-  (.sendMessage clojure-room "clojure rocks")
-
-  (xmpp/add-muc-listener clojure-room #'message-listener)
-)
