@@ -11,9 +11,11 @@
              :resource "Mr. Sausage"
              :room "clojure@conference.clojutre"})
 
-(def chat (xmpp/start config #(%))) ;; Just need a function doing nothing which takes one arg
+(def chat (xmpp/start config #(%))) 
 
-(def clojure-room (xmpp-clj.bot/join chat (:room config) (:nick config)))
+(def clojure-room (xmpp-clj.bot/join chat
+                            (:room config)
+                            (:nick config)))
 
 (.sendMessage clojure-room "Hello! Clojutre!!")
 (.sendMessage clojure-room "clojure rocks")
@@ -31,11 +33,12 @@
     (swap! msgs conj message)
     (handler message)))
 
-(def message-listener (-> handle-chatter )
+(def message-listener (-> handle-chatter 
                           (store-message)))
 
 (defn from-me? [{:keys [from]}]
-  (.contains from (str (:room config) "/" (:nick config))))
+  (.contains from
+             (str (:room config) "/" (:nick config))))
 
 (defn remove-message [p handler]
   (fn [message]
@@ -54,9 +57,11 @@
   (handle-noise m))
 
 (defn get-issue [issue]
-  (let [url (str "http://localhost:8080/rest/api/latest/issue/" issue)]
+  (let [url (str "http://localhost:8080/rest/api/latest/issue/"
+                 issue)]
     (:body (client/get url {:as :json
-                            :basic-auth [(:username config) (:password config)]
+                            :basic-auth [(:username config)
+                                         (:password config)]
                             :content-type :json
                             }))))
 
@@ -73,8 +78,8 @@
 
 (defn handle-noise [{:keys [body]}]
   (let [issue (second (re-matches #".*(CLOJ-\d+).*" body))]
-    (cond (.contains body "clojure") "clojure rocks!"
-          issue (show-issue issue))))
+    (cond issue (show-issue issue)
+          (.contains body "clojure") "clojure rocks!")))
 
 (defn handle-command [_]
   "I'm sorry, I don't know how to do that")
@@ -95,9 +100,12 @@
     (str "Oh, I'm running on " host ":" port))
 
 (defn remove-nick [body]
-  (clojure.string/replace body (re-pattern (str "@" (:nick config) " ")) ""))
+  (clojure.string/replace body
+           (re-pattern (str "@" (:nick config) " ")) ""))
 
 (defn handle-command [{:keys [body from] :as message}]
   (let [command (remove-nick body)]
-    (cond (.startsWith command "where are you running") (tell-where (runtime-info))
-          :else "I'm sorry, I don't know how to do that")))
+    (cond (.startsWith command "where are you running")
+          (tell-where (runtime-info))
+          :else
+           "I'm sorry, I don't know how to do that")))
