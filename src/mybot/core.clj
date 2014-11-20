@@ -61,30 +61,25 @@
 (defn from-me? [{:keys [from]}]
   (.contains from (str (:room config) "/" (:nick config))))
 
-(defn remove-message [p handler]
-  (fn [message]
-    (when-not (p message)
-      (handler message))))
-
 (def msgs (atom []))
 
-(defn store-message [handler]
-  (fn [message]
-    (swap! msgs conj message)
-    (handler message)))
+(defn store-message [message] (swap! msgs conj message))
 
-(def message-listener (->> handle-chatter
-                          (store-message)
-                          (remove-message from-me?)))
-  
+(def message-listener (-> handle-chatter
+                          (xmpp/wrap-tee store-message)
+                          (xmpp/wrap-remove-message from-me?)))
 (comment 
   (reset! msgs [])
   (.disconnect chat)
-  (def chat (xmpp/start config #(%)))
-  (def clojure-room (xmpp-clj.bot/join chat (:room config) (:nick config)))
+  (def out *out*)
+  (def chat (xmpp/start config))
+  (def clojure-room (xmpp/join chat (:room config) (:nick config)))
 
   (.sendMessage clojure-room "Hello! Clojutre!!")
   (.sendMessage clojure-room "clojure rocks")
 
-  (xmpp/add-muc-listener clojure-room #'message-listener)
+  (xmpp/add-listener clojure-room (xmpp/default-processor
+                                        #'message-listener
+                                          (xmpp/create-sender :response)
+                                            (xmpp/wrap-errors out)))
 )
