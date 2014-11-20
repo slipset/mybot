@@ -34,21 +34,21 @@
                                       (xmpp/wrap-errors out)))
 
 (def message-listener (-> #'handle-chatter
-                          (xmpp/wrap-debug out)))
+                          (xmpp/wrap-tee (partial println out))))
 
 (def msgs (atom []))
 
 (defn store-message [message] (swap! msgs conj message))
 
 (def message-listener (-> handle-chatter 
-                          (xmpp/wrap-store-msg store-message)))
+                          (xmpp/wrap-tee store-message)))
 
 (defn from-me? [{:keys [from]}]
   (.contains from
              (str (:room config) "/" (:nick config))))
 
 (def message-listener (-> #'handle-chatter 
-                          (xmpp/wrap-store-msg store-message)
+                          (xmpp/wrap-tee store-message)
                           (xmpp/wrap-remove-message from-me?)))
 
 (def message-sender (xmpp/create-sender :response))
