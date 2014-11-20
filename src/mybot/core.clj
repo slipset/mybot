@@ -14,9 +14,9 @@
 (.disconnect chat)
 (def chat (xmpp/start config))
 
-(def clojure-room (xmpp-clj.bot/join chat
-                            (:room config)
-                            (:nick config)))
+(def clojure-room (xmpp-clj/join chat
+                                 (:room config)
+                                 (:nick config)))
 (def out *out*)
 
 (.sendMessage clojure-room "Hello! ClojuTre")
