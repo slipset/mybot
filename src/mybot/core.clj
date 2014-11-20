@@ -11,43 +11,47 @@
              :resource "Mr. Sausage"
              :room "clojure@conference.clojutre"})
 
-(def chat (xmpp/start config #(%))) 
+(.disconnect chat)
+(def chat (xmpp/start config))
 
 (def clojure-room (xmpp-clj.bot/join chat
                             (:room config)
                             (:nick config)))
+(def out *out*)
 
-(.sendMessage clojure-room "Hello! Clojutre!!")
+(.sendMessage clojure-room "Hello! ClojuTre")
 (.sendMessage clojure-room "clojure rocks")
 
 (defn handle-chatter [m])
 
 (def message-listener handle-chatter)
 
-(xmpp/add-muc-listener clojure-room #'message-listener)
+(def message-sender (xmpp/dev-null))
+
+(xmpp/add-listener clojure-room (xmpp/default-processor
+                                  #'message-listener
+                                    #'message-sender
+                                      (xmpp/wrap-errors out)))
+
+(def message-listener (-> #'handle-chatter
+                          (xmpp/wrap-debug out)))
 
 (def msgs (atom []))
 
-(defn store-message [handler]
-  (fn [message]
-    (swap! msgs conj message)
-    (handler message)))
+(defn store-message [message] (swap! msgs conj message))
 
 (def message-listener (-> handle-chatter 
-                          (store-message)))
+                          (xmpp/wrap-store-msg store-message)))
 
 (defn from-me? [{:keys [from]}]
   (.contains from
              (str (:room config) "/" (:nick config))))
 
-(defn remove-message [p handler]
-  (fn [message]
-    (when-not (p message)
-      (handler message))))
+(def message-listener (-> #'handle-chatter 
+                          (xmpp/wrap-store-msg store-message)
+                          (xmpp/wrap-remove-message from-me?)))
 
-(def message-listener (->> handle-chatter
-                          (store-message)
-                          (remove-message from-me?)))
+(def message-sender (xmpp/create-sender :response))
 
 (defn handle-noise [{:keys [body]}]
   (when (.contains body "clojure")
