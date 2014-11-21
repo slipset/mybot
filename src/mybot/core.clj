@@ -12,9 +12,9 @@
              :room "clojure@conference.clojutre"})
 
 (.disconnect chat)
-(def chat (xmpp/start config))
+(def chat (xmpp/connect config))
 
-(def clojure-room (xmpp-clj/join chat
+(def clojure-room (xmpp/join chat
                                  (:room config)
                                  (:nick config)))
 (def out *out*)
