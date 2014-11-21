@@ -33,17 +33,16 @@
   {:host (.getCanonicalHostName (java.net.InetAddress/getLocalHost))
    :port  (slurp "target/repl-port")})
 
-(defn tell-where []
-  (let [{:keys [host port]} (runtime-info)]
-    (str "Oh, I'm running on " host ":" port)))
+(defn tell-where [{:keys [host port]}]
+    (str "Oh, I'm running on " host ":" port))
 
-(defn remove-nick [body]
-  (clojure.string/replace body (re-pattern (str "@" (:nick config) " ")) ""))
+(defn remove-nick [body nick]
+  (clojure.string/replace body (re-pattern (str "^@" nick " ")) ""))
 
-(defn handle-command [{:keys [body from] :as message}]
-  (let [command (remove-nick body)]
-    (cond (.startsWith command "where are you running") (tell-where)
-          :else "I'm sorry, I don't know how to do that")))
+(defn handle-command [{:keys [body]}]
+  (let [command (remove-nick body (:nick config))]
+    (cond (.startsWith command "where are you running") (tell-where (runtime-info))
+          :else (str "I'm sorry, I don't know how to do that: " command))))
 
 (defn handle-noise [{:keys [body]}]
   (let [issue (second (re-matches #".*(CLOJ-\d+).*" body))]
@@ -51,7 +50,7 @@
           issue (show-issue issue))))
 
 (defn to-me? [{:keys [body]}]
-  (.contains body (:username config)))
+  (.startsWith body (str "@" (:nick config))))
 
 (defn handle-chatter [message]
   (if (to-me? message)
@@ -72,7 +71,7 @@
   (reset! msgs [])
   (.disconnect chat)
   (def out *out*)
-  (def chat (xmpp/start config))
+  (def chat (xmpp/connect config))
   (def clojure-room (xmpp/join chat (:room config) (:nick config)))
 
   (.sendMessage clojure-room "Hello! Clojutre!!")

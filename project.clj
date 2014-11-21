@@ -5,12 +5,7 @@
                   :init-ns mybot.core}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-   
-   
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [clj-http "0.7.8"]
-                 [net.assum/xmpp-clj "0.0.1"]
-;;                 [com.draines/postal "1.11.1"]
-;;                 [jivesoftware/smack "3.1.0"]
-;;                 [jivesoftware/smackx "3.1.0"]
-   ])
+                 [net.assum/xmpp-clj "0.0.1"]]
+   :profiles {:dev {:dependencies [[midje "1.6.3"]]}})

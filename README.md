@@ -1,10 +1,28 @@
-# joint-bot
+# mybot
 
-A Clojure library designed to ... well, that part is up to you.
+This is a little xmpp-bot which knows how to respond to messages containing jira-issues
+     ;; you need to update the config if you want to use this your self
 
-## Usage
+     (def config {:host "localhost"
+                  :port 5222
+                  :username "the username of the bot"
+                  :domain "??"
+                  :password "the bots password"
+                  :nick "the nick the bot should have in the room"
+				  :room "the room id"})
 
-FIXME
+        (def out *out*)
+        (def chat (xmpp/connect config))
+        (def clojure-room (xmpp/join chat (:room config) (:nick config)))
+
+        (.sendMessage clojure-room "Hello! Clojutre!!")
+        (.sendMessage clojure-room "clojure rocks")
+
+        (xmpp/add-listener clojure-room (xmpp/default-processor
+                                              #'message-listener
+                                                 (xmpp/create-sender :response)
+                                                    (xmpp/wrap-errors out)))
+
 
 ## License
 
