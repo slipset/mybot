@@ -11,16 +11,31 @@
              :resource "Mr. Sausage"
              :room "clojure@conference.clojutre"})
 
-(.disconnect chat)
+(def out *out*)
+
 (def chat (xmpp/connect config))
 
 (def clojure-room (xmpp/join chat
                                  (:room config)
                                  (:nick config)))
-(def out *out*)
 
 (.sendMessage clojure-room "Hello! ClojuTre")
-(.sendMessage clojure-room "clojure rocks")
+(.sendMessage clojure-room "Clojure rocks!")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (defn handle-chatter [m])
 
@@ -33,8 +48,66 @@
                                     #'message-sender
                                       (xmpp/wrap-errors out)))
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (def message-listener (-> #'handle-chatter
-                          (xmpp/wrap-tee (partial println out))))
+                          (xmpp/wrap-tee (fn [m] (.println out m)))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (def msgs (atom []))
 
@@ -42,6 +115,35 @@
 
 (def message-listener (-> handle-chatter 
                           (xmpp/wrap-tee store-message)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (defn from-me? [{:keys [from]}]
   (.contains from
@@ -51,6 +153,34 @@
                           (xmpp/wrap-tee store-message)
                           (xmpp/wrap-remove-message from-me?)))
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (def message-sender (xmpp/create-sender :response))
 
 (defn handle-noise [{:keys [body]}]
@@ -59,6 +189,32 @@
 
 (defn handle-chatter [m]
   (handle-noise m))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (defn get-issue [issue]
   (let [url (str "http://localhost:8080/rest/api/latest/issue/"
@@ -85,6 +241,18 @@
     (cond issue (show-issue issue)
           (.contains body "clojure") "clojure rocks!")))
 
+
+
+
+
+
+
+
+
+
+
+
+
 (defn handle-command [_]
   "I'm sorry, I don't know how to do that")
 
@@ -96,6 +264,30 @@
     (handle-command message) 
     (handle-noise message)))
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (defn runtime-info []
   {:host (.getCanonicalHostName (java.net.InetAddress/getLocalHost))
    :port  (slurp "target/repl-port")})
@@ -105,7 +297,7 @@
 
 (defn remove-nick [body]
   (clojure.string/replace body
-           (re-pattern (str "@" (:nick config) " ")) ""))
+           (re-pattern (str "^@" (:nick config) " ")) ""))
 
 (defn handle-command [{:keys [body from] :as message}]
   (let [command (remove-nick body)]
