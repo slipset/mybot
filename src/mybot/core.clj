@@ -31,7 +31,7 @@
 
 (defn runtime-info []
   {:host (.getCanonicalHostName (java.net.InetAddress/getLocalHost))
-   :port  (slurp "target/repl-port")})
+   :port  (slurp "target/.repl-port")})
 
 (defn tell-where [{:keys [host port]}]
     (str "Oh, I'm running on " host ":" port))
